@@ -1,4 +1,8 @@
 # {{ ansible_managed }}
+#
+# If the limit of files that Jira can open is too low, it will be set to this value.
+#
+MIN_NOFILES_LIMIT={{ jira_service_max_nofiles }}
 
 #
 # One way to set the JIRA HOME path is here via this variable.  Simply uncomment it and set a valid path like /jira/home.  You can of course set it outside in the command terminal.  That will also work.
@@ -11,13 +15,26 @@ JIRA_HOME="{{ jira_home }}"
 JVM_SUPPORT_RECOMMENDED_ARGS="{{ jira_jvm_support_recommended_args }}"
 
 #
+#  You can use variable below to modify garbage collector settings.
+#  For Java 8 we recommend default settings
+#  For Java 11 and relatively small heaps we recommend: -XX:+UseParallelGC
+#  For Java 11 and larger heaps we recommend: -XX:+UseG1GC -XX:+ExplicitGCInvokesConcurrent
+#
+JVM_GC_ARGS="{{ jira_jvm_gc_args }}"
+
+#
 # The following 2 settings control the minimum and maximum given to the JIRA Java virtual machine.  In larger JIRA instances, the maximum amount will need to be increased.
 #
 JVM_MINIMUM_MEMORY="{{ jira_jvm_minimum_memory }}"
 JVM_MAXIMUM_MEMORY="{{ jira_jvm_maximum_memory }}"
 
 #
-# The following are the required arguments for JIRA.
+# The following setting configures the size of JVM code cache.  A high value of reserved size allows Jira to work with more installed apps.
+#
+JVM_CODE_CACHE_ARGS='{{ jira_jvm_code_cache_args }}'
+
+#
+# The following are the required arguments for Jira.
 #
 JVM_REQUIRED_ARGS="{{ jira_required_args }}"
 
@@ -36,12 +53,14 @@ DISABLE_NOTIFICATIONS=" -Datlassian.mail.senddisabled=true -Datlassian.mail.fetc
 #-----------------------------------------------------------------------------------
 
 #-----------------------------------------------------------------------------------
-# This allows us to actually debug GC related issues by correlating timestamps
-# with other parts of the application logs.  The second option prevents the JVM
-# from suppressing stack traces if a given type of exception occurs frequently,
-# which could make it harder for support to diagnose a problem.
+# Prevents the JVM from suppressing stack traces if a given type of exception
+# occurs frequently, which could make it harder for support to diagnose a problem.
 #-----------------------------------------------------------------------------------
-JVM_EXTRA_ARGS="-XX:+PrintGCDateStamps -XX:-OmitStackTraceInFastThrow{% if jira_jmx_enabled %} -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.port={{ jira_jmx_port }} -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.authenticate=false{% endif %}"
+JVM_EXTRA_ARGS="{{ jira_extra_args }}{% if jira_jmx_enabled %} -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.port={{ jira_jmx_port }} -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.authenticate=false{% endif %}"
+
+CURRENT_NOFILES_LIMIT=$( ulimit -Hn )
+ulimit -Sn $CURRENT_NOFILES_LIMIT
+ulimit -n $(( CURRENT_NOFILES_LIMIT > MIN_NOFILES_LIMIT  ? CURRENT_NOFILES_LIMIT : MIN_NOFILES_LIMIT ))
 
 PRGDIR=`dirname "$0"`
 cat "${PRGDIR}"/jirabanner.txt
@@ -59,7 +78,7 @@ if [ "$JIRA_HOME" != "" ]; then
     fi
 fi
 
-JAVA_OPTS="-Xms${JVM_MINIMUM_MEMORY} -Xmx${JVM_MAXIMUM_MEMORY} ${JAVA_OPTS} ${JVM_REQUIRED_ARGS} ${DISABLE_NOTIFICATIONS} ${JVM_SUPPORT_RECOMMENDED_ARGS} ${JVM_EXTRA_ARGS} ${JIRA_HOME_MINUSD}"
+JAVA_OPTS="-Xms${JVM_MINIMUM_MEMORY} -Xmx${JVM_MAXIMUM_MEMORY} ${JVM_CODE_CACHE_ARGS} ${JAVA_OPTS} ${JVM_REQUIRED_ARGS} ${DISABLE_NOTIFICATIONS} ${JVM_SUPPORT_RECOMMENDED_ARGS} ${JVM_EXTRA_ARGS} ${JIRA_HOME_MINUSD} ${START_JIRA_JAVA_OPTS}"
 
 export JAVA_OPTS
 
@@ -67,7 +86,7 @@ export JAVA_OPTS
 # !INSTALLER SET JAVA_HOME
 
 echo ""
-echo "If you encounter issues starting or stopping JIRA, please see the Troubleshooting guide at http://confluence.atlassian.com/display/JIRA/Installation+Troubleshooting+Guide"
+echo "If you encounter issues starting or stopping Jira, please see the Troubleshooting guide at https://docs.atlassian.com/jira/jadm-docs-0820/Troubleshooting+installation"
 echo ""
 if [ "$JIRA_HOME_MINUSD" != "" ]; then
     echo "Using JIRA_HOME:       $JIRA_HOME"
