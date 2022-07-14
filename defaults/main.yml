@@ -42,6 +42,14 @@ jira_database_configuration: false
 #   jira_database_port: 3306
 #   jira_database_name: 'jiradb'
 #   jira_database_url: 'jdbc:mysql://localhost/jira'
+#   jira_database_pool_min_size: 20
+#   jira_database_pool_max_size: 20
+#   jira_database_pool_max_wait: 30000
+#   jira_database_pool_max_idle: 20
+#   jira_database_additional_args:
+#   jira_database_validation_query: 'select version();'
+#   jira_database_validation_query_timeout: # (mysql: 3; postgresql: '')
+#   jira_database_schemaname:
 
 # Service
 jira_service_name: jira
